@@ -1,0 +1,660 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>วางแผนถังฉีดพ่น</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: Double A app shell. Signature band + logo on top, controls column on the left, KPI -> tank plan -> plot list on the right. */
+:root{
+  --da-blue:#004DF4; --da-cyan:#00E5F9; --da-blue-light:#467DFA;
+  --bg:#F4F7FC; --surface:#FFFFFF; --surface-2:#F4F7FC;
+  --ink:#1A1A1A; --muted:#5B6472; --line:#E3E7EF;
+  --primary:#004DF4; --primary-hover:#003BD1; --on-primary:#FFFFFF;
+  --link:#004DF4; --soft:#E5EDFE; --soft-2:#CCDBFD;
+  --ok-bg:#E6F4EC; --ok-ink:#17794A;
+  --warn-bg:#FFF1DB; --warn-ink:#A35F00;
+  --err:#C62F2F; --err-bg:#FDE8E8;
+  --shadow-sm:0 1px 2px rgba(0,77,244,.06); --shadow-md:0 6px 20px rgba(0,77,244,.10);
+  --font-sans:"Prompt","Poppins",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-num:"Poppins","Prompt",sans-serif;
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-pill:999px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0A101E; --surface:#111A2E; --surface-2:#16213A;
+  --ink:#E9EEFB; --muted:#9DAAC4; --line:#24304B;
+  --primary:#2F6BF7; --primary-hover:#4A80FA; --on-primary:#FFFFFF;
+  --link:#7FA6FF; --soft:#172A55; --soft-2:#1F3A78;
+  --ok-bg:#133326; --ok-ink:#6FD6A0;
+  --warn-bg:#3A2A0E; --warn-ink:#F0B35A;
+  --err:#FF8A8A; --err-bg:#3A1A1A;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0A101E; --surface:#111A2E; --surface-2:#16213A;
+  --ink:#E9EEFB; --muted:#9DAAC4; --line:#24304B;
+  --primary:#2F6BF7; --primary-hover:#4A80FA; --on-primary:#FFFFFF;
+  --link:#7FA6FF; --soft:#172A55; --soft-2:#1F3A78;
+  --ok-bg:#133326; --ok-ink:#6FD6A0;
+  --warn-bg:#3A2A0E; --warn-ink:#F0B35A;
+  --err:#FF8A8A; --err-bg:#3A1A1A;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark; }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{margin:0;line-height:1.25;text-wrap:balance}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+:focus-visible{outline:2px solid var(--da-blue-light);outline-offset:2px}
+
+/* top band */
+.top{background:var(--surface);border-bottom:1px solid var(--line)}
+.band{position:relative;height:72px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-right:max(16px,env(safe-area-inset-right,0px))}
+.band svg.motif{position:absolute;left:0;top:0;height:100%;width:min(380px,70vw);pointer-events:none}
+.band .logo{position:relative;margin-left:max(20px,env(safe-area-inset-left,0px));width:128px;height:32px;flex:none}
+.sync{position:relative;display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+  padding:4px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync[data-s="ready"] i{background:#1E9E5A}
+.sync[data-s="error"] i,.sync[data-s="none"] i{background:#E23B3B}
+.sync[data-s="loading"] i{background:var(--da-blue-light)}
+.titlerow{padding-block:20px 0}
+.titlerow h1{font-size:clamp(22px,3.4vw,30px);font-weight:700;color:var(--link)}
+.titlerow p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:4px;margin-top:14px;overflow-x:auto}
+.tab{appearance:none;border:0;background:transparent;cursor:pointer;padding:10px 16px;font-weight:500;color:var(--muted);
+  border-bottom:3px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--link);border-bottom-color:var(--primary);font-weight:600}
+
+main{padding-block:24px 48px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:20px}
+.card h2{font-size:17px;font-weight:600}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.hint{color:var(--muted);font-size:13px}
+
+/* plan layout */
+.plan{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+.controls{position:sticky;top:16px;display:grid;gap:18px}
+.field{display:grid;gap:6px;min-width:0}
+.field>label,.field>.lbl{font-size:13px;font-weight:600;color:var(--muted)}
+.input,.select{width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);min-height:42px}
+.input:hover,.select:hover{border-color:var(--da-blue-light)}
+.stepper{display:flex;align-items:stretch;gap:0}
+.stepper button{width:44px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-size:20px;font-weight:600;color:var(--link)}
+.stepper button:first-child{border-radius:var(--r-md) 0 0 var(--r-md)}
+.stepper button:last-child{border-radius:0 var(--r-md) var(--r-md) 0}
+.stepper button:hover{background:var(--soft)}
+.stepper input{border-radius:0;text-align:center;font-family:var(--font-num);font-weight:600;font-size:18px;border-left:0;border-right:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip-btn{appearance:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-pill);
+  border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:500}
+.chip-btn .c{font-family:var(--font-num);font-size:12px;color:var(--muted)}
+.chip-btn[aria-pressed="true"]{background:var(--soft);border-color:var(--da-blue-light);color:var(--link)}
+.chip-btn[aria-pressed="true"] .c{color:var(--link)}
+.chip-btn[aria-pressed="false"]{text-decoration:line-through;opacity:.65}
+.linkbtn{appearance:none;border:0;background:none;color:var(--link);cursor:pointer;font-size:13px;font-weight:500;padding:0}
+.linkbtn:hover{text-decoration:underline}
+.clones{width:100%;border-collapse:collapse;font-size:14px}
+.clones th{font-size:12px;color:var(--muted);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+.clones th:first-child,.clones td:first-child{text-align:left}
+.clones td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}
+.clones tr.zero td{color:var(--muted)}
+.clones label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500}
+.clones input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer}
+.clones tr.on td{background:var(--soft)}
+
+/* results */
+.results{display:grid;gap:24px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px;display:grid;gap:4px;min-width:0}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi .v{font-family:var(--font-num);font-weight:700;font-size:clamp(32px,5vw,46px);line-height:1.05}
+.kpi .v small{font-size:16px;font-weight:500;color:var(--muted);margin-left:6px;font-family:var(--font-sans)}
+.kpi.main{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.kpi.main .l,.kpi.main .v small{color:rgba(255,255,255,.82)}
+.kpi .s{font-size:13px;color:var(--muted)}
+.selbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}
+.selbar .lbl{color:var(--muted);font-weight:500}
+.tag{display:inline-block;padding:2px 10px;border-radius:var(--r-pill);background:var(--soft);color:var(--link);font-weight:600;font-size:13px}
+
+.tanks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.tank{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.tank.partial{border-style:dashed;border-color:var(--da-blue-light)}
+.tank-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--soft)}
+.tank-h b{font-size:15px;color:var(--link)}
+.tank-h .cnt{font-family:var(--font-num);font-size:13px;font-weight:600;color:var(--link)}
+.fill{height:5px;background:var(--soft-2)}
+.fill i{display:block;height:100%;background:var(--primary)}
+.tank ol{list-style:none;margin:0;padding:6px 14px 10px;display:grid}
+.tank li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.tank li:last-child{border-bottom:0}
+.tank li span:first-child{color:var(--muted);font-size:12.5px}
+.tank li b{font-weight:600}
+.tank li em{font-style:normal;color:var(--link);font-weight:600;margin-left:6px}
+.tank .note{padding:0 14px 10px;font-size:12.5px;color:var(--warn-ink)}
+
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-md)}
+.tablebox.tall{max-height:68vh;overflow:auto}
+table.data{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+table.data th{position:sticky;top:0;z-index:1;text-align:left;padding:9px 12px;background:var(--surface-2);color:var(--muted);font-weight:600;font-size:12.5px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td{padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td.r,table.data th.r{text-align:right}
+table.data tr.t-new td{border-top:2px solid var(--da-blue-light)}
+table.data tr.band-b td{background:color-mix(in srgb,var(--soft) 55%,transparent)}
+.pill{display:inline-block;min-width:28px;text-align:center;padding:1px 10px;border-radius:var(--r-pill);background:var(--primary);color:var(--on-primary);font-family:var(--font-num);font-weight:600;font-size:13px}
+.badge{display:inline-block;padding:1px 10px;border-radius:var(--r-pill);font-size:12.5px;font-weight:600;background:var(--soft);color:var(--link)}
+.badge.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.badge.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.badge.gray{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+
+.empty{padding:36px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r-md);display:grid;gap:6px;justify-items:center}
+.empty b{color:var(--ink);font-size:16px}
+
+/* data tab */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.toolbar .input,.toolbar .select{width:auto;min-width:0;flex:1 1 180px;max-width:280px}
+.toolbar .sp{flex:1 1 auto}
+.btn{appearance:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border-radius:var(--r-md);
+  border:1px solid var(--primary);background:transparent;color:var(--link);font-weight:600;min-height:42px;white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.btn.primary{background:var(--primary);color:var(--on-primary)}
+.btn.primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.btn.danger:hover{background:var(--err-bg)}
+.btn.sm{padding:4px 10px;min-height:32px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.rowact{display:flex;gap:6px;justify-content:flex-end}
+.notice{padding:12px 14px;border-radius:var(--r-md);background:var(--warn-bg);color:var(--warn-ink);font-size:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.notice.info{background:var(--soft);color:var(--link)}
+.notice.err{background:var(--err-bg);color:var(--err)}
+.notice .sp{flex:1 1 auto}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(10,16,30,.55);display:grid;place-items:center;padding:16px;z-index:50}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-md);width:min(520px,100%);max-height:100%;overflow:auto;padding:22px;display:grid;gap:14px}
+.modal h2{font-size:19px;color:var(--link)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err-t{color:var(--err);font-size:13px;min-height:1.2em}
+.foot-note{margin-top:20px;font-size:12.5px;color:var(--muted)}
+
+@media (max-width:960px){
+  .plan{grid-template-columns:minmax(0,1fr)}
+  .controls{position:static}
+}
+@media (max-width:640px){
+  .kpis{grid-template-columns:minmax(0,1fr)}
+  .kpi{grid-template-columns:1fr auto;align-items:center}
+  .kpi .l{grid-column:1}.kpi .v{grid-column:2;grid-row:1 / span 2}.kpi .s{grid-column:1}
+  .grid2{grid-template-columns:1fr}
+  .band .logo{width:104px;height:26px}
+  .card{padding:16px}
+}
+@media (prefers-reduced-motion:no-preference){ .fill i{transition:width .25s ease} }
+</style>
+
+<header class="top">
+  <div class="band">
+    <svg class="motif" viewBox="0 0 380 72" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points="0,0 270,0 214,72 0,72" fill="#004DF4"/>
+      <polygon points="270,0 306,0 250,72 214,72" fill="#00E5F9"/>
+      <polygon points="306,0 322,0 266,72 250,72" fill="#467DFA"/>
+    </svg>
+    <svg class="logo" viewBox="0 0 260 64" role="img" aria-label="Double A"><text x="0" y="46" font-family="Poppins, Arial, sans-serif" font-size="40" font-weight="800" font-style="italic" fill="#FFFFFF" letter-spacing="-1">Double A</text></svg>
+    <span class="sync" id="sync" data-s="loading" role="status"><i></i><span id="syncTxt">กำลังเชื่อมต่อฐานข้อมูล</span></span>
+  </div>
+  <div class="wrap">
+    <div class="titlerow">
+      <h1>วางแผนจำนวนถังฉีดพ่นสารเคมี</h1>
+      <p>เลือก Clonal Stock และสายพันธุ์ ระบบจัดแปลงลงถังและนับจำนวนถังให้</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-plan" aria-selected="true" data-tab="plan">วางแผนฉีดพ่น</button>
+      <button class="tab" role="tab" id="tab-data" aria-selected="false" data-tab="data">ฐานข้อมูลแปลง <span class="num" id="tabCount"></span></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ===== วางแผนฉีดพ่น ===== -->
+  <section id="view-plan" class="plan" aria-labelledby="tab-plan">
+    <aside class="card controls" aria-label="ตั้งค่าการฉีดพ่น">
+      <h2>ตั้งค่าการฉีดพ่น</h2>
+      <div class="field">
+        <label for="selStock">Clonal Stock</label>
+        <select class="select" id="selStock"></select>
+      </div>
+      <div class="field">
+        <label for="inpPer">จำนวนแปลงต่อ 1 ถัง</label>
+        <div class="stepper">
+          <button type="button" id="perDec" aria-label="ลดจำนวนแปลงต่อถัง">−</button>
+          <input class="input num" id="inpPer" type="number" inputmode="numeric" min="1" step="1" value="4">
+          <button type="button" id="perInc" aria-label="เพิ่มจำนวนแปลงต่อถัง">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl" id="lblStatus">สถานะแปลง (กดเพื่อรวม/ตัดออก)</span>
+        <div class="chips" id="statusChips" role="group" aria-labelledby="lblStatus"></div>
+      </div>
+      <div class="field">
+        <div class="card-head" style="margin:0">
+          <span class="lbl" id="lblClone">เลือกสายพันธุ์ (ติ๊กได้หลายพันธุ์)</span>
+          <span><button type="button" class="linkbtn" id="cloneAll">เลือกทั้งหมด</button> · <button type="button" class="linkbtn" id="cloneNone">ล้าง</button></span>
+        </div>
+        <table class="clones" aria-labelledby="lblClone">
+          <thead><tr><th>สายพันธุ์</th><th>แปลง</th><th>ถัง</th></tr></thead>
+          <tbody id="cloneBody"></tbody>
+        </table>
+      </div>
+    </aside>
+
+    <div class="results">
+      <div id="planEmpty" hidden></div>
+      <div id="planBody">
+        <div class="kpis">
+          <div class="kpi"><span class="l">จำนวนแปลงที่ต้องฉีด</span><span class="v" id="kPlots">0</span><span class="s" id="kPlotsS"></span></div>
+          <div class="kpi main"><span class="l">จำนวนถังที่ต้องใช้</span><span class="v" id="kTanks">0<small>ถัง</small></span><span class="s" id="kTanksS"></span></div>
+          <div class="kpi"><span class="l">ถังสุดท้าย</span><span class="v" id="kLast">-</span><span class="s" id="kLastS"></span></div>
+        </div>
+      </div>
+      <div class="selbar" id="selBar"></div>
+      <section class="card" id="cardTanks">
+        <div class="card-head"><h2>แผนการผสมสาร (ต่อถัง)</h2><span class="hint" id="tankHint"></span></div>
+        <div class="tanks" id="tanks"></div>
+      </section>
+      <section class="card" id="cardList">
+        <div class="card-head"><h2>รายการแปลงที่ต้องฉีด</h2><span class="hint" id="listHint"></span></div>
+        <div class="tablebox tall">
+          <table class="data" aria-label="รายการแปลงที่ต้องฉีด">
+            <thead><tr><th class="r">ลำดับ</th><th>Clonal Stock</th><th>แปลง</th><th>สายพันธุ์</th><th>สถานะ</th><th class="r">ถังที่</th></tr></thead>
+            <tbody id="listBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== ฐานข้อมูลแปลง ===== -->
+  <section id="view-data" hidden aria-labelledby="tab-data">
+    <div class="card">
+      <div class="card-head"><h2>ฐานข้อมูลแปลง</h2><span class="hint">แก้ไขที่นี่แล้วหน้าวางแผนอัปเดตทันที ทุกคนที่เปิดหน้านี้เห็นข้อมูลชุดเดียวกัน</span></div>
+      <div id="dataNotice"></div>
+      <div class="toolbar">
+        <input class="input" id="qData" type="search" placeholder="ค้นหาแปลง / สายพันธุ์" aria-label="ค้นหา">
+        <select class="select" id="fStock" aria-label="กรอง Clonal Stock"></select>
+        <select class="select" id="fClone" aria-label="กรองสายพันธุ์"></select>
+        <span class="sp"></span>
+        <button class="btn" id="btnImport" type="button">นำเข้าจาก Excel</button>
+        <input type="file" id="fileImport" accept=".xlsx,.xlsm,.xls" hidden>
+        <button class="btn primary" id="btnAdd" type="button">+ เพิ่มแปลง</button>
+      </div>
+      <div class="tablebox tall">
+        <table class="data" aria-label="ฐานข้อมูลแปลง" style="min-width:820px">
+          <thead><tr><th>Clonal Stock</th><th>แปลง</th><th>สายพันธุ์</th><th>ประเภท</th><th>สถานะ</th><th>วันที่ปลูก</th><th class="r">ต้นแม่พันธุ์</th><th class="r"><span class="rowact">จัดการ</span></th></tr></thead>
+          <tbody id="dataBody"></tbody>
+        </table>
+      </div>
+      <p class="foot-note" id="dataFoot"></p>
+    </div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden>
+  <form class="modal" id="form" role="dialog" aria-modal="true" aria-labelledby="mTitle" novalidate>
+    <h2 id="mTitle">เพิ่มแปลง</h2>
+    <div class="grid2">
+      <div class="field"><label for="mStock">Clonal Stock *</label><input class="input" id="mStock" list="dlStock" placeholder="เช่น Clonal Stock 4" autocomplete="off"></div>
+      <div class="field"><label for="mPlot">แปลง *</label><input class="input" id="mPlot" placeholder="เช่น CS4/2" autocomplete="off"></div>
+      <div class="field"><label for="mClone">สายพันธุ์ *</label><input class="input" id="mClone" list="dlClone" placeholder="เช่น K7" autocomplete="off"></div>
+      <div class="field"><label for="mType">ประเภทแปลง</label><select class="select" id="mType"><option value="">ไม่ระบุ</option><option>Garden</option><option>Sand Bed</option></select></div>
+      <div class="field"><label for="mStatus">สถานะ</label><input class="input" id="mStatus" list="dlStatus" placeholder="เช่น เก็บผลผลิต" autocomplete="off"></div>
+      <div class="field"><label for="mDate">วันที่ปลูก</label><input class="input" id="mDate" type="date"></div>
+      <div class="field"><label for="mPlants">จำนวนต้นแม่พันธุ์</label><input class="input num" id="mPlants" type="number" min="0" step="1" inputmode="numeric"></div>
+    </div>
+    <datalist id="dlStock"></datalist><datalist id="dlClone"></datalist><datalist id="dlStatus"></datalist>
+    <div class="err-t" id="mErr" role="alert"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button type="button" class="btn" id="mCancel">ยกเลิก</button>
+      <button type="submit" class="btn primary" id="mSave">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<script>
+//#logic-start
+const ALL = 'ทั้งหมด';
+const NOSTATUS = 'ไม่ระบุ';
+const natCmp = (a, b) => String(a).localeCompare(String(b), 'en', { numeric: true });
+const sortRows = rows => rows.slice().sort((a, b) => natCmp(a.stock, b.stock) || natCmp(a.plot, b.plot) || natCmp(a.id, b.id));
+function normStock(s) {
+  const m = String(s || '').trim().match(/clonal\s*stock\s*(\d+)/i);
+  return m ? 'Clonal Stock ' + m[1] : String(s || '').trim().replace(/\s+/g, ' ');
+}
+const statusOf = r => r.status || NOSTATUS;
+function matchRows(rows, f) {
+  const cs = new Set(f.clones), ex = new Set(f.exStatus);
+  return sortRows(rows).filter(r => (f.stock === ALL || r.stock === f.stock) && cs.has(r.clone) && !ex.has(statusOf(r)));
+}
+function planTanks(list, per) {
+  const tanks = [];
+  list.forEach((r, i) => { const t = Math.floor(i / per); (tanks[t] = tanks[t] || []).push(r); });
+  return tanks;
+}
+function cloneSummary(rows, f, per) {
+  const ex = new Set(f.exStatus), map = new Map();
+  rows.forEach(r => { if (!map.has(r.clone)) map.set(r.clone, 0); });
+  rows.forEach(r => { if ((f.stock === ALL || r.stock === f.stock) && !ex.has(statusOf(r))) map.set(r.clone, map.get(r.clone) + 1); });
+  return [...map.entries()].sort((a, b) => natCmp(a[0], b[0])).map(([name, n]) => ({ name, plots: n, tanks: Math.ceil(n / per) }));
+}
+//#logic-end
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = iso => { if (!iso) return '-'; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const fmtN = n => (n == null || n === '') ? '-' : Number(n).toLocaleString('en-US');
+
+/* ---------- state ---------- */
+const LS = 'da-spray-planner-v1';
+let S = { tab: 'plan', stock: 'Clonal Stock 4', per: 4, clones: null, exStatus: [], q: '', fStock: ALL, fClone: ALL };
+try { const t = JSON.parse(localStorage.getItem(LS) || 'null'); if (t) S = Object.assign(S, t); } catch (e) {}
+const save = () => { try { localStorage.setItem(LS, JSON.stringify({ tab: S.tab, stock: S.stock, per: S.per, clones: S.clones, exStatus: S.exStatus })); } catch (e) {} };
+
+let db = null, user = null, rows = [], dbState = 'loading', canWrite = null, editing = null, delId = null, importPlan = null, busy = '';
+
+const cloneNames = () => [...new Set(rows.map(r => r.clone))].sort(natCmp);
+const stockNames = () => [...new Set(rows.map(r => r.stock))].sort(natCmp);
+const statusNames = () => [...new Set(rows.map(statusOf))].sort((a, b) => natCmp(a, b));
+
+function ensureState() {
+  const stocks = stockNames();
+  if (S.stock !== ALL && !stocks.includes(S.stock)) S.stock = ALL;
+  const cl = cloneNames();
+  if (S.clones == null) S.clones = cl.includes('K7') ? ['K7'] : cl.slice(0, 1);
+  S.clones = S.clones.filter(c => cl.includes(c));
+  S.per = Math.max(1, Math.floor(Number(S.per)) || 1);
+}
+
+/* ---------- plan view ---------- */
+function filt() { return { stock: S.stock, clones: S.clones, exStatus: S.exStatus }; }
+
+function renderControls() {
+  const stocks = stockNames();
+  $('#selStock').innerHTML = [ALL, ...stocks].map(s => `<option${s === S.stock ? ' selected' : ''}>${esc(s)}</option>`).join('');
+  if (document.activeElement !== $('#inpPer')) $('#inpPer').value = S.per;
+  const stRows = rows.filter(r => S.stock === ALL || r.stock === S.stock);
+  $('#statusChips').innerHTML = statusNames().map(s => {
+    const n = stRows.filter(r => statusOf(r) === s).length;
+    return `<button type="button" class="chip-btn" data-status="${esc(s)}" aria-pressed="${!S.exStatus.includes(s)}">${esc(s)} <span class="c">${n}</span></button>`;
+  }).join('');
+  const sum = cloneSummary(rows, filt(), S.per);
+  $('#cloneBody').innerHTML = sum.map(c => {
+    const on = S.clones.includes(c.name);
+    return `<tr class="${on ? 'on' : ''}${c.plots === 0 ? ' zero' : ''}"><td><label><input type="checkbox" data-clone="${esc(c.name)}"${on ? ' checked' : ''}>${esc(c.name)}</label></td><td class="num">${c.plots}</td><td class="num">${c.tanks}</td></tr>`;
+  }).join('');
+}
+
+function emptyBox(title, msg) { return `<div class="empty"><b>${esc(title)}</b><span>${esc(msg)}</span></div>`; }
+
+function renderPlan() {
+  renderControls();
+  const emp = $('#planEmpty'), body = $('#planBody');
+  let msg = null;
+  if (dbState === 'loading') msg = ['กำลังโหลดข้อมูลแปลง', 'รอสักครู่ ระบบกำลังดึงข้อมูลจากฐานข้อมูล'];
+  else if (dbState === 'none') msg = ['เชื่อมต่อฐานข้อมูลไม่ได้', 'เปิดหน้านี้ผ่านลิงก์ที่ได้รับสิทธิ์ และเข้าสู่ระบบก่อน'];
+  else if (dbState === 'error') msg = ['อ่านฐานข้อมูลไม่สำเร็จ', 'ลองโหลดหน้านี้ใหม่อีกครั้ง'];
+  else if (!rows.length) msg = ['ยังไม่มีข้อมูลแปลง', 'ไปที่แท็บ "ฐานข้อมูลแปลง" เพื่อเพิ่มแปลงหรือนำเข้าจากไฟล์ Excel'];
+  if (msg) {
+    emp.hidden = false; emp.innerHTML = emptyBox(msg[0], msg[1]);
+    ['#planBody', '#selBar', '#cardTanks', '#cardList'].forEach(s => $(s).hidden = true);
+    return;
+  }
+  emp.hidden = true;
+  ['#planBody', '#selBar', '#cardTanks', '#cardList'].forEach(s => $(s).hidden = false);
+
+  const list = matchRows(rows, filt()), per = S.per, tanks = planTanks(list, per);
+  const n = list.length, t = tanks.length;
+  $('#kPlots').innerHTML = n;
+  $('#kPlotsS').textContent = S.stock === ALL ? 'ทุก Clonal Stock' : S.stock;
+  $('#kTanks').innerHTML = `${t}<small>ถัง</small>`;
+  $('#kTanksS').textContent = `${per} แปลงต่อถัง`;
+  const last = tanks[t - 1];
+  if (!t) { $('#kLast').textContent = '-'; $('#kLastS').textContent = 'ยังไม่มีถัง'; }
+  else if (last.length < per) { $('#kLast').innerHTML = `${last.length}<small>/ ${per} แปลง</small>`; $('#kLastS').textContent = `ถังที่ ${t} ไม่เต็ม`; }
+  else { $('#kLast').innerHTML = `${per}<small>/ ${per} แปลง</small>`; $('#kLastS').textContent = `ถังที่ ${t} เต็ม ทุกถังเต็ม`; }
+
+  $('#selBar').innerHTML = `<span class="lbl">สายพันธุ์ที่เลือก</span>` + (S.clones.length ? S.clones.map(c => `<span class="tag">${esc(c)}</span>`).join('') : `<span class="hint">(ยังไม่เลือก) ติ๊กสายพันธุ์ทางซ้ายเพื่อเริ่มวางแผน</span>`);
+
+  if (!n) {
+    const why = S.clones.length ? 'ไม่พบแปลงตรงกับตัวกรอง ลองเปลี่ยน Clonal Stock หรือสถานะแปลง' : 'ติ๊กเลือกสายพันธุ์ทางซ้ายอย่างน้อย 1 พันธุ์';
+    $('#tanks').innerHTML = emptyBox('ไม่พบแปลงที่ต้องฉีด', why);
+    $('#listBody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">ไม่พบแปลง</td></tr>`;
+    $('#tankHint').textContent = ''; $('#listHint').textContent = '';
+    return;
+  }
+  $('#tankHint').textContent = `${t} ถัง · ${n} แปลง`;
+  $('#listHint').textContent = `${n} แปลง`;
+  $('#tanks').innerHTML = tanks.map((tk, i) => {
+    const partial = tk.length < per;
+    return `<div class="tank${partial ? ' partial' : ''}"><div class="tank-h"><b>ถังที่ ${i + 1}</b><span class="cnt">${tk.length}/${per} แปลง</span></div><div class="fill"><i style="width:${Math.round(tk.length / per * 100)}%"></i></div><ol>` +
+      tk.map((r, j) => `<li><span>แปลงที่ ${j + 1}</span><span><b>${esc(r.plot)}</b><em>${esc(r.clone)}</em></span></li>`).join('') + `</ol>` +
+      (partial ? `<div class="note">ถังเศษ ยังเหลือที่ว่าง ${per - tk.length} แปลง</div>` : '') + `</div>`;
+  }).join('');
+  let h = '';
+  list.forEach((r, i) => {
+    const tn = Math.floor(i / per) + 1, first = i % per === 0;
+    h += `<tr class="${first && i ? 't-new ' : ''}${tn % 2 === 0 ? 'band-b' : ''}"><td class="r num">${i + 1}</td><td>${esc(r.stock)}</td><td><b>${esc(r.plot)}</b></td><td>${esc(r.clone)}</td><td>${statusBadge(statusOf(r))}</td><td class="r"><span class="pill">${tn}</span></td></tr>`;
+  });
+  $('#listBody').innerHTML = h;
+}
+
+function statusBadge(s) {
+  const cls = s === 'ปลูกใหม่' ? '' : s === 'เก็บผลผลิต' ? 'ok' : s === 'พักแปลง' ? 'warn' : 'gray';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+
+/* ---------- data view ---------- */
+function renderData() {
+  $('#fStock').innerHTML = [ALL, ...stockNames()].map(s => `<option value="${esc(s)}"${s === S.fStock ? ' selected' : ''}>${s === ALL ? 'ทุก Clonal Stock' : esc(s)}</option>`).join('');
+  $('#fClone').innerHTML = [ALL, ...cloneNames()].map(s => `<option value="${esc(s)}"${s === S.fClone ? ' selected' : ''}>${s === ALL ? 'ทุกสายพันธุ์' : esc(s)}</option>`).join('');
+
+  const w = canWrite !== false && dbState === 'ready';
+  $('#btnAdd').hidden = !w; $('#btnImport').hidden = !w;
+  let notice = '';
+  if (dbState === 'none') notice = `<div class="notice err">เชื่อมต่อฐานข้อมูลไม่ได้ เปิดผ่านลิงก์ที่ได้รับสิทธิ์และเข้าสู่ระบบก่อน</div>`;
+  else if (dbState === 'error') notice = `<div class="notice err">อ่านฐานข้อมูลไม่สำเร็จ ลองโหลดหน้านี้ใหม่</div>`;
+  else if (canWrite === false) notice = `<div class="notice info">บัญชีนี้ดูข้อมูลได้อย่างเดียว ขอสิทธิ์ผู้ร่วมแก้ไข (Contributor) จากเจ้าของหน้านี้เพื่อเพิ่มหรือแก้ไขแปลง</div>`;
+  if (busy) notice += `<div class="notice info" role="status">${esc(busy)}</div>`;
+  if (importPlan) {
+    notice += `<div class="notice"><span class="sp"><b>พบ ${importPlan.rows.length} แปลง</b> ในไฟล์ ${esc(importPlan.name)} (ชีท ${esc(importPlan.sheet)}) ข้อมูลเดิม ${rows.length} รายการจะถูกแทนที่ทั้งหมด</span><button class="btn sm primary" type="button" id="impOk">ยืนยันนำเข้า</button><button class="btn sm" type="button" id="impNo">ยกเลิก</button></div>`;
+  }
+  $('#dataNotice').innerHTML = notice;
+
+  const q = S.q.trim().toLowerCase();
+  const list = sortRows(rows).filter(r => (S.fStock === ALL || r.stock === S.fStock) && (S.fClone === ALL || r.clone === S.fClone) &&
+    (!q || [r.stock, r.plot, r.clone, r.type, r.status].join(' ').toLowerCase().includes(q)));
+  if (dbState === 'loading') { $('#dataBody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">กำลังโหลดข้อมูล</td></tr>`; }
+  else if (!list.length) {
+    $('#dataBody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">${rows.length ? 'ไม่พบแปลงที่ตรงกับคำค้น' : 'ยังไม่มีข้อมูลแปลง กด "+ เพิ่มแปลง" หรือ "นำเข้าจาก Excel" เพื่อเริ่มต้น'}</td></tr>`;
+  } else {
+    $('#dataBody').innerHTML = list.map(r => {
+      let act = '';
+      if (w) act = delId === r.id
+        ? `<span class="rowact"><button class="btn sm danger" type="button" data-del-ok="${esc(r.id)}">ยืนยันลบ</button><button class="btn sm" type="button" data-del-no>ยกเลิก</button></span>`
+        : `<span class="rowact"><button class="btn sm" type="button" data-edit="${esc(r.id)}">แก้ไข</button><button class="btn sm danger" type="button" data-del="${esc(r.id)}">ลบ</button></span>`;
+      return `<tr><td>${esc(r.stock)}</td><td><b>${esc(r.plot)}</b></td><td>${esc(r.clone)}</td><td>${esc(r.type) || '-'}</td><td>${statusBadge(statusOf(r))}</td><td class="num">${fmtDate(r.plantDate)}</td><td class="r num">${fmtN(r.plants)}</td><td class="r">${act}</td></tr>`;
+    }).join('');
+  }
+  $('#dataFoot').textContent = rows.length ? `แสดง ${list.length} จาก ${rows.length} รายการ · 1 แถว = 1 แปลงต่อ 1 สายพันธุ์ (แปลงเดียวที่ปลูกหลายพันธุ์มีหลายแถว)` : '';
+  $('#dlStock').innerHTML = stockNames().map(s => `<option value="${esc(s)}">`).join('');
+  $('#dlClone').innerHTML = cloneNames().map(s => `<option value="${esc(s)}">`).join('');
+  $('#dlStatus').innerHTML = [...new Set(['ปลูกใหม่', 'เก็บผลผลิต', 'พักแปลง', ...statusNames().filter(s => s !== NOSTATUS)])].map(s => `<option value="${esc(s)}">`).join('');
+}
+
+function renderAll() {
+  ensureState();
+  const syncMap = { loading: 'กำลังเชื่อมต่อฐานข้อมูล', ready: `ซิงก์สดกับฐานข้อมูล · ${rows.length} แปลง`, error: 'อ่านฐานข้อมูลไม่สำเร็จ', none: 'ไม่ได้เชื่อมต่อฐานข้อมูล' };
+  $('#sync').dataset.s = dbState; $('#syncTxt').textContent = syncMap[dbState];
+  $('#tabCount').textContent = dbState === 'ready' ? `(${rows.length})` : '';
+  $('#view-plan').hidden = S.tab !== 'plan'; $('#view-data').hidden = S.tab !== 'data';
+  ['plan', 'data'].forEach(t => $('#tab-' + t).setAttribute('aria-selected', String(S.tab === t)));
+  if (S.tab === 'plan') renderPlan(); else renderData();
+}
+
+/* ---------- events: plan ---------- */
+function setPer(v, fromInput) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n) || n < 1) { if (!fromInput) S.per = 1; else return; } else S.per = n;
+  save(); renderAll();
+}
+$('#selStock').addEventListener('change', e => { S.stock = e.target.value; save(); renderAll(); });
+$('#inpPer').addEventListener('input', e => setPer(e.target.value, true));
+$('#inpPer').addEventListener('blur', e => { e.target.value = S.per; });
+$('#perDec').addEventListener('click', () => { $('#inpPer').value = S.per; setPer(S.per - 1); });
+$('#perInc').addEventListener('click', () => { $('#inpPer').value = S.per; setPer(S.per + 1); });
+$('#statusChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-status]'); if (!b) return;
+  const s = b.dataset.status; S.exStatus = S.exStatus.includes(s) ? S.exStatus.filter(x => x !== s) : [...S.exStatus, s];
+  save(); renderAll();
+});
+$('#cloneBody').addEventListener('change', e => {
+  const c = e.target.dataset.clone; if (c == null) return;
+  S.clones = e.target.checked ? [...new Set([...S.clones, c])] : S.clones.filter(x => x !== c);
+  save(); renderAll();
+});
+$('#cloneAll').addEventListener('click', () => { S.clones = cloneNames(); save(); renderAll(); });
+$('#cloneNone').addEventListener('click', () => { S.clones = []; save(); renderAll(); });
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { S.tab = b.dataset.tab; save(); renderAll(); }));
+
+/* ---------- events: data ---------- */
+$('#qData').addEventListener('input', e => { S.q = e.target.value; renderData(); });
+$('#fStock').addEventListener('change', e => { S.fStock = e.target.value; renderData(); });
+$('#fClone').addEventListener('change', e => { S.fClone = e.target.value; renderData(); });
+$('#dataBody').addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.edit) openForm(rows.find(r => r.id === t.dataset.edit));
+  else if (t.dataset.del) { delId = t.dataset.del; renderData(); }
+  else if ('delNo' in t.dataset) { delId = null; renderData(); }
+  else if (t.dataset.delOk) {
+    const id = t.dataset.delOk; delId = null; t.disabled = true;
+    try { await db.doc('plots/' + id).delete(); } catch (err) { flash('ลบไม่สำเร็จ ' + (err && err.message || '')); }
+    renderData();
+  }
+});
+function flash(msg) { busy = msg; renderData(); setTimeout(() => { if (busy === msg) { busy = ''; renderData(); } }, 4000); }
+
+/* form */
+function openForm(r) {
+  editing = r || null;
+  $('#mTitle').textContent = r ? 'แก้ไขแปลง' : 'เพิ่มแปลง';
+  $('#mStock').value = r ? r.stock : (S.stock !== ALL ? S.stock : '');
+  $('#mPlot').value = r ? r.plot : '';
+  $('#mClone').value = r ? r.clone : '';
+  $('#mType').value = r ? (r.type || '') : 'Garden';
+  $('#mStatus').value = r ? (r.status || '') : '';
+  $('#mDate').value = r ? (r.plantDate || '') : '';
+  $('#mPlants').value = r && r.plants != null ? r.plants : '';
+  $('#mErr').textContent = '';
+  $('#scrim').hidden = false; $('#mStock').focus();
+}
+const closeForm = () => { $('#scrim').hidden = true; editing = null; };
+$('#btnAdd').addEventListener('click', () => openForm(null));
+$('#mCancel').addEventListener('click', closeForm);
+$('#scrim').addEventListener('mousedown', e => { if (e.target.id === 'scrim') closeForm(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#scrim').hidden) closeForm(); });
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const rec = {
+    stock: normStock($('#mStock').value), plot: $('#mPlot').value.trim(), clone: $('#mClone').value.trim(),
+    type: $('#mType').value, status: $('#mStatus').value.trim(),
+    plantDate: $('#mDate').value || null, plants: $('#mPlants').value === '' ? null : Math.max(0, Math.floor(Number($('#mPlants').value)))
+  };
+  if (!rec.stock || !rec.plot || !rec.clone) { $('#mErr').textContent = 'กรอก Clonal Stock, แปลง และสายพันธุ์ให้ครบ'; return; }
+  $('#mSave').disabled = true; $('#mErr').textContent = '';
+  try {
+    if (editing) await db.doc('plots/' + editing.id).set(rec); else await db.collection('plots').add(rec);
+    closeForm();
+  } catch (err) {
+    $('#mErr').textContent = err && err.code === 'invalid_argument' ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไขข้อมูล' : 'บันทึกไม่สำเร็จ ลองอีกครั้ง';
+  }
+  $('#mSave').disabled = false;
+});
+
+/* excel import */
+async function loadXLSX() {
+  if (window.XLSX) return window.XLSX;
+  await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  return window.XLSX;
+}
+function isoOf(v) {
+  if (!(v instanceof Date) || isNaN(v)) return null;
+  const t = new Date(v.getTime() + 12 * 3600e3); let y = t.getFullYear();
+  if (y > 2400) y -= 543;
+  return `${String(y).padStart(4, '0')}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+async function parseWorkbook(file) {
+  const X = await loadXLSX();
+  const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  for (const name of wb.SheetNames) {
+    const aoa = X.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
+    const hi = aoa.findIndex(r => r && /clonal\s*stock/i.test(String(r[0] || '')) && /plot/i.test(String(r[1] || '')));
+    if (hi < 0) continue;
+    const out = [];
+    for (let i = hi + 1; i < aoa.length; i++) {
+      const r = aoa[i] || [], a = r[0], b = r[1], j = r[9];
+      if (typeof a !== 'string' || !/^\s*clonal\s*stock\s*\d+/i.test(a) || typeof b !== 'string' || typeof j !== 'string' || !j.trim()) continue;
+      out.push({ stock: normStock(a), plot: b.trim(), clone: j.trim(), type: typeof r[2] === 'string' ? r[2].trim() : '',
+        status: typeof r[12] === 'string' ? r[12].trim() : '', plantDate: isoOf(r[10]), plants: typeof r[14] === 'number' ? Math.round(r[14]) : null });
+    }
+    if (out.length) return { rows: out, sheet: name };
+  }
+  return null;
+}
+$('#btnImport').addEventListener('click', () => $('#fileImport').click());
+$('#fileImport').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  busy = 'กำลังอ่านไฟล์ ' + f.name; renderData();
+  try {
+    const res = await parseWorkbook(f);
+    busy = '';
+    if (!res) { flash('ไม่พบตารางแปลงในไฟล์นี้ ต้องมีหัวตาราง Clonal Stock / Plot ในคอลัมน์ A และ B'); return; }
+    importPlan = { name: f.name, ...res }; renderData();
+  } catch (err) { flash('อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx'); }
+});
+$('#dataNotice').addEventListener('click', async e => {
+  if (e.target.id === 'impNo') { importPlan = null; renderData(); }
+  if (e.target.id === 'impOk') {
+    const plan = importPlan; importPlan = null; const keep = new Set();
+    try {
+      for (let i = 0; i < plan.rows.length; i++) {
+        const id = 'r' + String(i + 1).padStart(4, '0'); keep.add(id);
+        busy = `กำลังบันทึก ${i + 1} / ${plan.rows.length}`; renderData();
+        await db.doc('plots/' + id).set(plan.rows[i]);
+      }
+      for (const r of rows.filter(r => !keep.has(r.id))) await db.doc('plots/' + r.id).delete();
+      busy = ''; flash(`นำเข้าสำเร็จ ${plan.rows.length} แปลง`);
+    } catch (err) { busy = ''; flash('นำเข้าไม่สำเร็จ บางรายการอาจบันทึกไปแล้ว ลองนำเข้าอีกครั้ง'); }
+  }
+});
+
+/* ---------- boot ---------- */
+renderAll();
+(async function init() {
+  try {
+    const c = window.claude;
+    if (c && c.use) { [db, user] = await Promise.all([c.use('db'), c.use('user')]); }
+  } catch (e) { db = null; }
+  if (!db) { dbState = 'none'; renderAll(); return; }
+  try { if (user && user.can) canWrite = await user.can('data.write'); } catch (e) { canWrite = null; }
+  db.collection('plots').onSnapshot(snap => {
+    rows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    dbState = 'ready';
+    renderAll();
+  }, () => { dbState = 'error'; renderAll(); });
+})();
+</script>
+
+</body></html>
